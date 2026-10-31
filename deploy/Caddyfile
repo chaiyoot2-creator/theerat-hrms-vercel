@@ -1,0 +1,10 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Caddy gets and renews the Let's Encrypt certificate for this domain automatically.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy /api/* api:3001
+	respond 404
+}
