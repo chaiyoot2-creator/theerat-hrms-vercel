@@ -1,0 +1,63 @@
+# THEERAT HRMS API + PostgreSQL on a VPS that already runs Coolify.
+# Coolify's Traefik (network "coolify") terminates HTTPS and issues the Let's Encrypt
+# certificate from the labels below; nothing binds host ports. Use this file instead of
+# deploy/docker-compose.yml (which brings its own Caddy) when ports 80/443 are taken.
+#
+#   cd /opt/theerat-hrms && docker compose -f deploy/coolify/docker-compose.yml --env-file deploy/.env up -d --build
+name: theerat-hrms
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hrms
+      POSTGRES_USER: hrms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      TZ: Asia/Bangkok
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrms -d hrms"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ../../api
+    image: theerat-hrms-api:latest
+    restart: unless-stopped
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgres://hrms:${POSTGRES_PASSWORD}@db:5432/hrms
+      PORT: 3001
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal, coolify]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.services.theerat-hrms-api.loadbalancer.server.port=3001
+      # HTTP -> HTTPS
+      - traefik.http.routers.theerat-hrms-http.rule=Host(`${API_DOMAIN:?set API_DOMAIN in deploy/.env}`) && PathPrefix(`/api`)
+      - traefik.http.routers.theerat-hrms-http.entrypoints=http
+      - traefik.http.routers.theerat-hrms-http.middlewares=theerat-hrms-https
+      - traefik.http.middlewares.theerat-hrms-https.redirectscheme.scheme=https
+      # API
+      - traefik.http.routers.theerat-hrms.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.theerat-hrms.entrypoints=https
+      - traefik.http.routers.theerat-hrms.tls=true
+      - traefik.http.routers.theerat-hrms.tls.certresolver=letsencrypt
+      - traefik.http.routers.theerat-hrms.middlewares=theerat-hrms-body
+      - traefik.http.middlewares.theerat-hrms-body.buffering.maxRequestBodyBytes=2097152
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+  coolify:
+    external: true

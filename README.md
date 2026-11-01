@@ -71,6 +71,10 @@ corepack pnpm install && corepack pnpm dev
 
 อัปเดตครั้งต่อไป: `sudo bash /opt/theerat-hrms/deploy/update.sh`
 
+> **VPS ที่มี Coolify อยู่แล้ว (151.242.34.51)**: Traefik ของ Coolify ใช้พอร์ต 80/443 อยู่ ให้ใช้
+> `docker compose -f deploy/coolify/docker-compose.yml --env-file deploy/.env up -d --build` แทน
+> (Traefik ออกใบรับรอง SSL ให้จาก labels, ไม่เปิดพอร์ตเพิ่ม และไม่ต้องรัน `setup-vps.sh`)
+>
 > ถ้า VPS ใช้ Hestia Control Panel อยู่แล้ว (พอร์ต 80/443 ถูกใช้) ให้ลบ service `caddy` ออกจาก compose,
 > เพิ่ม `ports: ["127.0.0.1:3001:3001"]` ให้ `api` แล้วตั้ง Proxy ใน Hestia ไปที่ `http://127.0.0.1:3001` + เปิด SSL ตามบทความ Munjai "เพิ่ม SSL ให้เว็บไซต์"
 

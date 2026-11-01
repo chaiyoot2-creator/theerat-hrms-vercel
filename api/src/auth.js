@@ -71,7 +71,10 @@ async function sendResetMail(to, link) {
 
 export function authRouter() {
   const r = Router();
+  // Keyed by IP + account: behind Vercel's rewrite many users share a few edge IPs,
+  // so an IP-only key would let one person's typos lock everyone out.
   const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false,
+    keyGenerator: (req) => `${req.ip}|${String(req.body?.email || req.body?.token || '').trim().toLowerCase()}`,
     message: { error: 'ลองหลายครั้งเกินไป กรุณารอ 15 นาที' } });
 
   r.post('/login', limiter, async (req, res) => {
